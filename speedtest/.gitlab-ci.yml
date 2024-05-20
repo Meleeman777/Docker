@@ -1,0 +1,9 @@
+stages:
+  - test
+test:
+  script:
+    - git clone https://oauth2:${TOKEN}@gitlab.rebrainme.com/docker_users_repos/5229/speedtest.git
+    - cd speedtest/
+    - git checkout php-apache-working
+    - chmod 775 ./up.sh
+    - ./up.sh
