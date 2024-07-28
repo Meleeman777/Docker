@@ -1,0 +1,41 @@
+version: "3.4"
+services:
+  traefik:
+    image: traefik:v2.0
+    ports:
+      - 80:80
+      - 8080:8080 # traefik dashboard
+      - 443:443
+    command:
+      - --api.insecure=true
+      - --api.dashboard=true
+      - --api.debug=true
+      - --log.level=DEBUG
+      - --providers.docker=true
+      - --providers.docker.swarmMode=true
+      - --providers.docker.network=traefik-net
+      - --entrypoints.web.address=:80
+      - --entrypoints.web-secured.address=:443
+      - --certificatesresolvers.mytlschallenge.acme.httpChallenge.entrypoint=web
+      - --certificatesresolvers.mytlschallenge.acme.email=you@whatever.com
+      - --certificatesresolvers.mytlschallenge.acme.storage=/letsencrypt/acme.json
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - traefik-public
+    deploy:
+      labels:
+        - "traefik.http.routers.api.rule=Host(`traefik.161.35.91.140.nip.io`) || (Host(`traefik.167.172.45.109.nip.io`)) || (Host(`traefik.165.232.90.119.nip.io`))"
+      placement:
+        constraints:
+          - node.role == manager
+    logging:
+      driver: "fluentd"
+      options:
+        fluentd-async-connect: "true"
+        tag: traefik
+
+networks:
+  traefik-public:
+    driver: overlay
+    external: true

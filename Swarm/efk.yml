@@ -1,0 +1,74 @@
+version: "3.4"
+
+services:
+  fluentd:
+    image: registry.rebrainme.com/docker_users_repos/5229/dkr-30-voting/fluent:8
+    ports:
+      - 24224:24224
+      - 24224:24224/udp
+    networks:
+      - traefik-public
+    deploy:
+      mode: 'global'
+    volumes:
+      - $PWD/fluentd/conf/fluent.conf:/fluentd/etc/fluent.conf
+  elasticsearch:
+    image: elasticsearch:8.8.0
+    environment:
+      - node.name={{.Node.Hostname}}
+      - discovery.seed_hosts=elasticsearch
+      - cluster.initial_master_nodes=docker-master
+      - cluster.name=DevOps
+      - ELASTIC_PASSWORD=test
+      - xpack.security.enabled=false
+      - xpack.monitoring.collection.enabled=true
+      - xpack.security.audit.enabled=false
+      - xpack.license.self_generated.type=trial
+      - network.host=0.0.0.0
+    volumes:
+      - efk:/usr/share/elasticsearch/data  #данные эластика
+      - efk_cert:/usr/share/elasticsearch/config/certs #серты эластика
+    networks:
+      - traefik-public
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.servicePath=/
+        - com.df.port=9200
+        - com.df.srcPort=9200
+  kibana:
+    image: kibana:8.8.0
+    ports:
+      - 5601:5601
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=elastic/kibana
+      - ELASTICSEARCH_PASSWORD=test
+      - SERVER_NAME=kibana
+    deploy:
+      labels:
+        - com.df.notify=true
+        - com.df.distribute=true
+        - com.df.servicePath=/
+        - "traefik.http.routers.kibana.rule=Host(`kibana.161.35.91.140.nip.io`) || (Host(`kibana.167.172.45.109.nip.io`)) || (Host(`kibana.165.232.90.119.nip.io`))"
+        - "traefik.http.routers.kibana.entrypoints=web"
+        - "traefik.http.services.kibana.loadbalancer.server.port=5601"
+        - "traefik.http.middlewares.kibana-auth.basicauth.users=rebrainme:DockerRocks!" # MD5 доступом к Kibana через Traefik
+        - "traefik.http.routers.traefik.middlewares=kibana-auth"
+    networks:
+      - traefik-public
+volumes:
+  efk:
+    driver: glusterfs
+    name: "swarm-vols/efk"
+  efk_cert:
+    driver: glusterfs
+    name: "swarm-vols/efk_cert"
+
+networks:
+  traefik-public:
+    driver: overlay
